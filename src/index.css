@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0D0F12;
+  --color-surface: #14181F;
+  --color-surface-low: #1A1C1F;
+  --color-surface-high: #282A2D;
+  --color-surface-highest: #333538;
+  --color-primary: #4A90D9;
+  --color-primary-container: #002B4E;
+  --color-secondary: #CEBDFF;
+  --color-secondary-container: #4F319C;
+  --color-outline: #2A3347;
+  --color-outline-variant: #414751;
+  --color-on-surface: #E8EDF5;
+  --color-on-surface-variant: #C1C7D2;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-label: "Space Grotesk", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface antialiased;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface-highest/40 backdrop-blur-xl border border-outline-variant/20;
+  }
+  
+  .clinical-border {
+    @apply border border-outline;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-outline-variant/40 rounded-full hover:bg-outline-variant/60;
+  }
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600&display=swap');
