@@ -4,8 +4,7 @@ import PatientRecord from './components/PatientRecord';
 import ReportExport from './components/ReportExport';
 import Settings from './components/Settings';
 import Header from './components/Header';
-
-export type Page = 'dashboard' | 'patient' | 'export' | 'settings';
+import { Page } from './types';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');

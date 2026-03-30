@@ -1,4 +1,4 @@
-import { Page } from '../App';
+import { Page } from '../types';
 import { Bell, Settings as SettingsIcon, Search, User } from 'lucide-react';
 
 interface HeaderProps {
