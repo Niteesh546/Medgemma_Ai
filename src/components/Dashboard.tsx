@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import React, { ReactNode, useState, useRef } from 'react';
 import { motion } from 'motion/react';
 import { 
   Plus, 
@@ -11,10 +11,55 @@ import {
   Maximize2,
   AlertTriangle,
   Info,
-  FileText
+  FileText,
+  Upload,
+  Loader2
 } from 'lucide-react';
 
+interface AnalysisResult {
+  findings: string[];
+  differential: string[];
+  recommendations: string[];
+  confidence: number;
+}
+
 export default function Dashboard() {
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Create preview
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    setIsAnalyzing(true);
+    setAnalysisResult(null);
+
+    const formData = new FormData();
+    formData.append('scan', file);
+
+    try {
+      const response = await fetch('/api/analyze-scan', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Analysis failed');
+
+      const result = await response.json();
+      setAnalysisResult(result);
+    } catch (error) {
+      console.error('Error analyzing scan:', error);
+      alert('Failed to analyze scan. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left Sidebar: Patient List */}
@@ -67,9 +112,24 @@ export default function Dashboard() {
         </div>
 
         <div className="p-4 bg-surface-low/30">
-          <button className="w-full bg-[#1a1c1f] text-primary border border-primary/20 hover:bg-primary/10 py-2.5 text-xs font-semibold flex items-center justify-center gap-2 transition-all rounded-sm">
-            <Plus className="w-4 h-4" />
-            Initialize New Scan
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileUpload} 
+            className="hidden" 
+            accept="image/*"
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isAnalyzing}
+            className="w-full bg-[#1a1c1f] text-primary border border-primary/20 hover:bg-primary/10 py-2.5 text-xs font-semibold flex items-center justify-center gap-2 transition-all rounded-sm disabled:opacity-50"
+          >
+            {isAnalyzing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+            {isAnalyzing ? 'Analyzing Scan...' : 'Upload SPECT Scan'}
           </button>
         </div>
       </aside>
@@ -107,7 +167,7 @@ export default function Dashboard() {
             {/* SPECT IMAGE */}
             <div className="absolute inset-0 bg-secondary/10 blur-3xl opacity-20 rounded-full" />
             <img 
-              src="https://picsum.photos/seed/brain-scan/800/800" 
+              src={previewUrl || "https://picsum.photos/seed/brain-scan/800/800"} 
               alt="SPECT Scan"
               className="w-full h-auto mix-blend-screen opacity-90 rounded-lg shadow-2xl grayscale contrast-125 brightness-110"
               referrerPolicy="no-referrer"
@@ -196,7 +256,7 @@ export default function Dashboard() {
                   <circle className="text-surface-highest" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" strokeWidth="2" />
                   <motion.circle 
                     initial={{ strokeDashoffset: 364 }}
-                    animate={{ strokeDashoffset: 40 }}
+                    animate={{ strokeDashoffset: 364 - (364 * (analysisResult?.confidence || 94) / 100) }}
                     className="text-secondary" 
                     cx="64" 
                     cy="64" 
@@ -208,11 +268,15 @@ export default function Dashboard() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-4xl font-display font-extrabold text-on-surface">94<span className="text-xl">%</span></span>
+                  <span className="text-4xl font-display font-extrabold text-on-surface">
+                    {analysisResult?.confidence || 94}<span className="text-xl">%</span>
+                  </span>
                   <span className="text-[10px] font-label text-secondary uppercase tracking-tighter">Confidence</span>
                 </div>
               </div>
-              <p className="text-xs text-center text-on-surface-variant font-medium">High clinical correlation with Alzheimer's pattern detection</p>
+              <p className="text-xs text-center text-on-surface-variant font-medium">
+                {analysisResult ? 'AI analysis complete' : 'High clinical correlation with Alzheimer\'s pattern detection'}
+              </p>
             </div>
           </section>
 
@@ -220,20 +284,35 @@ export default function Dashboard() {
           <section>
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-outline-variant mb-4">Core Findings</h3>
             <div className="space-y-3">
-              <FindingItem 
-                icon={<AlertTriangle className="w-4 h-4 text-red-400" />}
-                title="Hypoperfusion"
-                tag="SEVERE"
-                tagColor="text-red-400 bg-red-400/10"
-                description="Significant metabolic reduction in the posterior cingulate cortex."
-              />
-              <FindingItem 
-                icon={<Info className="w-4 h-4 text-primary" />}
-                title="Cortical Thinning"
-                tag="OBSERVE"
-                tagColor="text-primary bg-primary/10"
-                description="Early signs of volume loss in bilateral parietal regions."
-              />
+              {analysisResult ? (
+                analysisResult.findings.map((finding, idx) => (
+                  <FindingItem 
+                    key={idx}
+                    icon={<AlertTriangle className="w-4 h-4 text-red-400" />}
+                    title={finding.split(':')[0]}
+                    tag="AI DETECTED"
+                    tagColor="text-red-400 bg-red-400/10"
+                    description={finding.split(':')[1] || finding}
+                  />
+                ))
+              ) : (
+                <>
+                  <FindingItem 
+                    icon={<AlertTriangle className="w-4 h-4 text-red-400" />}
+                    title="Hypoperfusion"
+                    tag="SEVERE"
+                    tagColor="text-red-400 bg-red-400/10"
+                    description="Significant metabolic reduction in the posterior cingulate cortex."
+                  />
+                  <FindingItem 
+                    icon={<Info className="w-4 h-4 text-primary" />}
+                    title="Cortical Thinning"
+                    tag="OBSERVE"
+                    tagColor="text-primary bg-primary/10"
+                    description="Early signs of volume loss in bilateral parietal regions."
+                  />
+                </>
+              )}
             </div>
           </section>
 
@@ -241,9 +320,22 @@ export default function Dashboard() {
           <section>
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-outline-variant mb-4">Differential Analysis</h3>
             <div className="space-y-5">
-              <DifferentialItem label="Alzheimer's Disease" value={0.88} color="bg-secondary" />
-              <DifferentialItem label="Frontotemporal Dementia" value={0.12} color="bg-outline-variant" />
-              <DifferentialItem label="Vascular Impairment" value={0.04} color="bg-outline-variant" />
+              {analysisResult ? (
+                analysisResult.differential.map((diff, idx) => (
+                  <DifferentialItem 
+                    key={idx} 
+                    label={diff} 
+                    value={idx === 0 ? 0.85 : 0.15 / (analysisResult.differential.length - 1)} 
+                    color={idx === 0 ? "bg-secondary" : "bg-outline-variant"} 
+                  />
+                ))
+              ) : (
+                <>
+                  <DifferentialItem label="Alzheimer's Disease" value={0.88} color="bg-secondary" />
+                  <DifferentialItem label="Frontotemporal Dementia" value={0.12} color="bg-outline-variant" />
+                  <DifferentialItem label="Vascular Impairment" value={0.04} color="bg-outline-variant" />
+                </>
+              )}
             </div>
           </section>
 
@@ -251,7 +343,7 @@ export default function Dashboard() {
           <section>
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-outline-variant mb-3">Recommended Actions</h3>
             <div className="flex flex-wrap gap-2">
-              {['Volumetric MRI', 'Amyloid-PET', 'Neuro-Psych Eval'].map(action => (
+              {(analysisResult?.recommendations || ['Volumetric MRI', 'Amyloid-PET', 'Neuro-Psych Eval']).map(action => (
                 <span key={action} className="px-2.5 py-1 bg-surface-high text-[10px] font-medium text-on-surface-variant border border-outline-variant/10 cursor-pointer hover:border-primary/40 transition-colors rounded-sm">
                   {action}
                 </span>
@@ -323,7 +415,7 @@ function FindingItem({ icon, title, tag, tagColor, description }: any) {
   );
 }
 
-function DifferentialItem({ label, value, color }: { label: string; value: number; color: string }) {
+function DifferentialItem({ label, value, color }: { label: string; value: number; color: string; key?: any }) {
   return (
     <div>
       <div className="flex justify-between items-center mb-1.5">
